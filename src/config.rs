@@ -17,6 +17,7 @@ use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
+use std::process::{Command as ExecCommand};
 use xdg::BaseDirectories;
 
 pub use keybind::Keybind;
@@ -34,18 +35,32 @@ pub struct Config {
     pub tags: Option<Vec<String>>,
     pub layouts: Vec<Layout>,
     pub scratchpad: Option<Vec<ScratchPad>>,
-    //of you are on tag "1" and you goto tag "1" this takes you to the previous tag
+    //if you are on tag "1" and you goto tag "1" this takes you to the previous tag
     pub disable_current_tag_swap: bool,
     pub focus_behaviour: FocusBehaviour,
     pub focus_new_windows: bool,
     pub keybind: Vec<Keybind>,
+    pub load_from_exec: Option<String>,
 }
 
 #[must_use]
 pub fn load() -> Config {
     load_from_file()
         .map_err(|err| eprintln!("ERROR LOADING CONFIG: {:?}", err))
+        .map(load_from_exec)
         .unwrap_or_default()
+}
+
+fn load_from_exec(config: Config) -> Config {
+    println!("Load from exec: {:?}", config.load_from_exec);
+    if let Some(ref command_str) = config.load_from_exec {
+        let output = ExecCommand::new(command_str)
+            .output()
+            .expect("failed to launch");
+        toml::from_slice(&output.stdout).unwrap()
+    } else {
+        config
+    }
 }
 
 /// # Panics
@@ -328,6 +343,7 @@ impl Default for Config {
             modkey: "Mod4".to_owned(), //win key
             mousekey: "Mod4".to_owned(), //win key
             keybind: commands,
+            load_from_exec: None,
         }
     }
 }
